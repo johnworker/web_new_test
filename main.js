@@ -22,6 +22,7 @@ form.addEventListener('submit', function (e) {
 });
 
 
+// 確保 DOM 已完全載入後初始化
 document.addEventListener('DOMContentLoaded', () => {
     // 初始化場景 (Scene)
     const scene = new THREE.Scene();
@@ -33,89 +34,74 @@ document.addEventListener('DOMContentLoaded', () => {
         0.1, // 近端距離
         1000 // 遠端距離
     );
-    camera.position.z = 5;
+    camera.position.z = 5; // 將相機從中心移開
 
     // 建立渲染器 (Renderer)
     const canvas = document.getElementById('backgroundCanvas');
     const renderer = new THREE.WebGLRenderer({
-        canvas: canvas,
+        canvas: canvas, // 綁定到 canvas
         alpha: true, // 背景透明
     });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth, window.innerHeight); // 設置渲染器大小
     renderer.setPixelRatio(window.devicePixelRatio);
 
-    // 粒子幾何
-    const particleCount = 10000; // 粒子數量
-    const particlesGeometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3); // 每個粒子 3 個座標 (x, y, z)
-    const velocities = new Float32Array(particleCount * 3); // 每個粒子的速度
+    // 建立幾何體 (Geometry)
+    const geometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
 
-    // 初始化粒子位置和速度
-    for (let i = 0; i < particleCount; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 10; // X
-        positions[i * 3 + 1] = (Math.random() - 0.5) * 10; // Y
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 10; // Z
-
-        velocities[i * 3] = (Math.random() - 0.5) * 0.02; // X 速度
-        velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.02; // Y 速度
-        velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.02; // Z 速度
-    }
-
-    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    particlesGeometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
-
-    // 粒子材質
-    const particlesMaterial = new THREE.PointsMaterial({
-        color: 0xffffff, // 粒子顏色
-        size: 0.05, // 粒子大小
-        transparent: true,
-        opacity: 0.8,
+    // 建立材質 (Material)
+    const material = new THREE.MeshStandardMaterial({
+        color: 0x007bff, // 顏色
+        emissive: 0x111111, // 自發光
+        metalness: 0.5, // 金屬光澤
+        roughness: 0.2, // 粗糙程度
     });
 
-    // 粒子系統
-    const particles = new THREE.Points(particlesGeometry, particlesMaterial);
-    scene.add(particles);
+    // 建立網格 (Mesh)
+    const torus = new THREE.Mesh(geometry, material);
+    scene.add(torus);
 
-    // 滑鼠交互
+    // 增加光源
+    const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+    pointLight.position.set(5, 5, 5);
+    scene.add(pointLight);
+
+    // 增加環境光
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    // 儲存滑鼠位置
     const mouse = { x: 0, y: 0 };
+
+    // 滑鼠移動事件
     window.addEventListener('mousemove', (event) => {
+        // 將滑鼠位置轉換為歸一化座標 (-1 到 1)
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        // 使用滑鼠位置影響物體變形 (簡單縮放示例)
+        torus.scale.x = 1 + mouse.x * 0.5; // 根據 x 軸縮放
+        torus.scale.y = 1 + mouse.y * 0.5; // 根據 y 軸縮放
     });
 
     // 動畫函式
     function animate() {
         requestAnimationFrame(animate);
 
-        const positions = particlesGeometry.attributes.position.array;
-        const velocities = particlesGeometry.attributes.velocity.array;
-
-        // 更新粒子位置
-        for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] += velocities[i * 3];
-            positions[i * 3 + 1] += velocities[i * 3 + 1];
-            positions[i * 3 + 2] += velocities[i * 3 + 2];
-
-            // 碰到邊界時反彈
-            if (positions[i * 3] > 5 || positions[i * 3] < -5) velocities[i * 3] *= -1;
-            if (positions[i * 3 + 1] > 5 || positions[i * 3 + 1] < -5) velocities[i * 3 + 1] *= -1;
-            if (positions[i * 3 + 2] > 5 || positions[i * 3 + 2] < -5) velocities[i * 3 + 2] *= -1;
-        }
-
-        particlesGeometry.attributes.position.needsUpdate = true; // 更新粒子位置
-        particles.rotation.x += mouse.y * 0.01; // 粒子系統旋轉
-        particles.rotation.y += mouse.x * 0.01;
+        // 旋轉幾何體
+        torus.rotation.x += 0.01;
+        torus.rotation.y += 0.01;
 
         // 渲染場景
         renderer.render(scene, camera);
     }
 
-    // 調整視窗大小
+    // 調整視窗大小事件
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
+    // 啟動動畫
     animate();
 });
