@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>模仿 Cell Interactive 網站</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 </head>
 <body>
     <header class="header">
@@ -19,11 +20,14 @@
     </header>
 
     <section id="hero" class="hero">
-        <h1>創新數位體驗</h1>
-        <p>透過對話，共同創造未來。</p>
-        <a href="#contact" class="btn">開始對話</a>
+        <canvas id="backgroundCanvas"></canvas>
+        <div class="content">
+            <h1>創新數位體驗</h1>
+            <p>透過對話，共同創造未來。</p>
+            <a href="#contact" class="btn">開始對話</a>
+        </div>
     </section>
-
+    
     <section id="about" class="about">
         <h2>關於我們</h2>
         <p>我們是一支專注於數位與品牌創意的團隊，提供全方位的解決方案。</p>
@@ -72,6 +76,6 @@
         </form>
     </footer>
 
-    <script src="./main.js"></script>
+    <script src="main.js"></script>
 </body>
 </html>
