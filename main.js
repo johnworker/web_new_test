@@ -22,80 +22,145 @@ form.addEventListener('submit', function (e) {
 });
 
 
-// 確保 DOM 已完全載入後初始化
 document.addEventListener('DOMContentLoaded', () => {
-    // 初始化場景 (Scene)
+    // 初始化場景
     const scene = new THREE.Scene();
 
-    // 建立相機 (Camera)
+    // 初始化相機
     const camera = new THREE.PerspectiveCamera(
-        75, // 視角
-        window.innerWidth / window.innerHeight, // 長寬比
-        0.1, // 近端距離
-        1000 // 遠端距離
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
     );
-    camera.position.z = 5; // 將相機從中心移開
+    camera.position.z = 5;
 
-    // 建立渲染器 (Renderer)
+    // 初始化渲染器
     const canvas = document.getElementById('backgroundCanvas');
-    const renderer = new THREE.WebGLRenderer({
-        canvas: canvas, // 綁定到 canvas
-        alpha: true, // 背景透明
-    });
-    renderer.setSize(window.innerWidth, window.innerHeight); // 設置渲染器大小
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
 
-    // 建立幾何體 (Geometry)
-    const geometry = new THREE.TorusGeometry(1, 0.4, 16, 100);
-
-    // 建立材質 (Material)
-    const material = new THREE.MeshStandardMaterial({
-        color: 0x007bff, // 顏色
-        emissive: 0x111111, // 自發光
-        metalness: 0.5, // 金屬光澤
-        roughness: 0.2, // 粗糙程度
+    // 主球體幾何與材質
+    const mainSphereGeometry = new THREE.SphereGeometry(1, 32, 32);
+    const mainSphereMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff5555, // 母球顏色
     });
+    const mainSphere = new THREE.Mesh(mainSphereGeometry, mainSphereMaterial);
+    scene.add(mainSphere);
 
-    // 建立網格 (Mesh)
-    const torus = new THREE.Mesh(geometry, material);
-    scene.add(torus);
+    // 子球體數據
+    const childSpheres = [];
+    const maxChildSphereCount = 10;
+    const animationParams = {
+        isExpanding: false, // 是否正在分裂
+        progress: 0, // 分裂/合併的進度 (0~1)
+        mergeSpeed: 0.01, // 合併速度 (時間漸變)
+    };
 
-    // 增加光源
-    const pointLight = new THREE.PointLight(0xffffff, 1, 100);
-    pointLight.position.set(5, 5, 5);
-    scene.add(pointLight);
+    for (let i = 0; i < maxChildSphereCount; i++) {
+        const childGeometry = new THREE.SphereGeometry(
+            Math.random() * 0.3 + 0.1, // 隨機大小
+            16,
+            16
+        );
+        const childMaterial = new THREE.MeshBasicMaterial({
+            color: 0xff8888, // 子球顏色
+        });
+        const childSphere = new THREE.Mesh(childGeometry, childMaterial);
+        childSphere.position.set(0, 0, 0); // 初始位置與母球重合
+        childSphere.visible = false; // 初始隱藏
+        childSphere.targetPosition = { x: 0, y: 0, z: 0 }; // 初始化目標位置
+        childSpheres.push(childSphere);
+        scene.add(childSphere);
+    }
 
-    // 增加環境光
+    // 光源 (可選)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
-    // 儲存滑鼠位置
-    const mouse = { x: 0, y: 0 };
+    // 滑鼠與主球體交互
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
 
-    // 滑鼠移動事件
     window.addEventListener('mousemove', (event) => {
-        // 將滑鼠位置轉換為歸一化座標 (-1 到 1)
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-        // 使用滑鼠位置影響物體變形 (簡單縮放示例)
-        torus.scale.x = 1 + mouse.x * 0.5; // 根據 x 軸縮放
-        torus.scale.y = 1 + mouse.y * 0.5; // 根據 y 軸縮放
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(mainSphere);
+
+        if (intersects.length > 0 && !animationParams.isExpanding) {
+            // 滑鼠進入主球體，開始分裂
+            animationParams.isExpanding = true;
+            animationParams.progress = 0; // 重置進度
+
+            // 設定子球體隨機位置
+            childSpheres.forEach((sphere) => {
+                sphere.visible = true;
+                sphere.targetPosition = {
+                    x: Math.random() * 4 - 2, // 隨機X位置
+                    y: Math.random() * 4 - 2, // 隨機Y位置
+                    z: Math.random() * 2 - 1, // 隨機Z位置
+                };
+            });
+        }
+    });
+
+    window.addEventListener('mouseout', () => {
+        // 滑鼠離開畫面，開始合併
+        animationParams.isExpanding = false;
     });
 
     // 動畫函式
     function animate() {
         requestAnimationFrame(animate);
 
-        // 旋轉幾何體
-        torus.rotation.x += 0.01;
-        torus.rotation.y += 0.01;
+        if (animationParams.isExpanding) {
+            // 分裂過程
+            animationParams.progress = Math.min(
+                animationParams.progress + 0.02,
+                1
+            );
+        } else {
+            // 合併過程
+            animationParams.progress = Math.max(
+                animationParams.progress - animationParams.mergeSpeed,
+                0
+            );
+        }
+
+        // 更新子球體位置與母球縮放
+        childSpheres.forEach((sphere) => {
+            if (sphere.visible) {
+                const target = animationParams.isExpanding
+                    ? sphere.targetPosition
+                    : { x: 0, y: 0, z: 0 };
+                sphere.position.x +=
+                    (target.x - sphere.position.x) * 0.1; // 平滑過渡
+                sphere.position.y +=
+                    (target.y - sphere.position.y) * 0.1;
+                sphere.position.z +=
+                    (target.z - sphere.position.z) * 0.1;
+
+                // 當進度為0時隱藏子球體
+                if (animationParams.progress === 0) {
+                    sphere.visible = false;
+                }
+            }
+        });
+
+        // 更新母球縮放
+        const mainScale = animationParams.isExpanding
+            ? 1 - animationParams.progress * 0.5
+            : 1;
+        mainSphere.scale.set(mainScale, mainScale, mainScale);
 
         // 渲染場景
         renderer.render(scene, camera);
     }
 
-    // 調整視窗大小事件
+    // 窗口大小調整
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
